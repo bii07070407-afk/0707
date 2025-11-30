@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>動物英文學習園地 (莫內風格)</title>
+    <!-- 載入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 設置 Inter 字體 */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* 莫內風格的柔和背景色 */
+            background-color: #fcf8f0; 
+        }
+
+        /* 莫內風格的按鈕和卡片基礎樣式 */
+        .monet-button {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(105, 129, 142, 0.1), 0 2px 4px -2px rgba(105, 129, 142, 0.06);
+            /* 柔和的藍綠色調 */
+            background-color: #a2d2ff; 
+            color: #1e3a8a;
+            border: 2px solid #81b2e6;
+        }
+
+        .monet-button:hover {
+            /* 懸停時顏色加深，模擬光影變化 */
+            background-color: #81b2e6;
+            color: #ffffff;
+            box-shadow: 0 6px 15px -3px rgba(105, 129, 142, 0.2), 0 4px 6px -4px rgba(105, 129, 142, 0.1);
+        }
+        
+        .monet-card {
+            background-color: #ffffff; /* 白色作為畫布 */
+            border-radius: 1.5rem; /* 更圓潤的邊角 */
+            box-shadow: 0 10px 20px rgba(105, 129, 142, 0.15); /* 柔和的陰影 */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .monet-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(105, 129, 142, 0.25);
+        }
+
+        /* 記憶配對遊戲的卡片樣式 */
+        .memory-card {
+            aspect-ratio: 1 / 1;
+            transform-style: preserve-3d;
+            position: relative;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .memory-card-inner {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+
+        .memory-card.flipped .memory-card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1rem;
+            border: 3px solid #81b2e6;
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        /* 卡背 (未翻開的狀態) - 莫內的荷花池綠 */
+        .card-back {
+            background-color: #b8e0d4; 
+            color: #4a7a8f;
+            transform: rotateY(0deg);
+            font-size: 2rem;
+        }
+        
+        /* 卡面 (翻開的狀態) - 柔和的黃色調 */
+        .card-front {
+            background-color: #ffe8d6;
+            color: #3b3b3b;
+            transform: rotateY(180deg);
+            padding: 0.5rem;
+            line-height: 1.2;
+        }
+        
+        /* 匹配成功的卡片 */
+        .memory-card.matched .card-back {
+            background-color: #e0f2f1; /* 成功後變淺綠色 */
+            opacity: 0.8;
+            cursor: default;
+        }
+
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- 標題與導航 -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-[#3a5a40] tracking-tight">莫內花園：動物英文學習</h1>
+            <p class="mt-2 text-xl text-[#62929e]">在印象派的氛圍中探索 20 個動物單字。</p>
+        </header>
+
+        <nav class="flex justify-center space-x-4 mb-8">
+            <button id="nav-learn" class="monet-button px-4 py-2 rounded-xl text-lg">學習例句</button>
+            <button id="nav-quiz" class="monet-button px-4 py-2 rounded-xl text-lg">問答遊戲</button>
+            <button id="nav-memory" class="monet-button px-4 py-2 rounded-xl text-lg">記憶配對</button>
+        </nav>
+
+        <!-- 主要內容區 -->
+        <main id="app-content" class="min-h-[60vh] p-6 monet-card">
+            <!-- 內容將由 JavaScript 動態載入 -->
+        </main>
+
+        <!-- 語音錯誤或不支持的提示 -->
+        <div id="status-message" class="fixed bottom-0 right-0 m-4 p-3 rounded-lg shadow-xl bg-red-100 text-red-700 hidden" role="alert">
+            <p id="status-text"></p>
+        </div>
+
+    </div>
+
+    <script>
+        // 20 個動物英文單字、中文翻譯、Emoji 和例句
+        const animals = [
+            { en: 'Dog', zh: '狗', emoji: '🐕', example: 'The friendly {Dog} wagged its tail happily when I returned home.' },
+            { en: 'Cat', zh: '貓', emoji: '🐈', example: 'A sleek black {Cat} silently stalked a bird in the garden.' },
+            { en: 'Tiger', zh: '老虎', emoji: '🐅', example: 'The massive striped {Tiger} is an apex predator in the jungle.' },
+            { en: 'Lion', zh: '獅子', emoji: '🦁', example: 'The male {Lion} with its huge mane is called the king of the savanna.' },
+            { en: 'Elephant', zh: '大象', emoji: '🐘', example: 'An enormous {Elephant} used its trunk to spray water on itself.' },
+            { en: 'Monkey', zh: '猴子', emoji: '🐒', example: 'A clever little {Monkey} stole a banana right out of my hand.' },
+            { en: 'Bear', zh: '熊', emoji: '🐻', example: 'It is important to secure your food when camping in {Bear} country.' },
+            { en: 'Fox', zh: '狐狸', emoji: '🦊', example: 'The sly {Fox} managed to escape the hunter by running into the dense woods.' },
+            { en: 'Wolf', zh: '狼', emoji: '🐺', example: 'A pack of {Wolf} howled at the full moon high up in the mountains.' },
+            { en: 'Deer', zh: '鹿', emoji: '🦌', example: 'We watched a gentle {Deer} grazing quietly near the edge of the forest.' },
+            { en: 'Rabbit', zh: '兔子', emoji: '🐇', example: 'The quick little {Rabbit} hopped away instantly when it heard a noise.' },
+            { en: 'Squirrel', zh: '松鼠', emoji: '🐿️', example: 'The busy {Squirrel} buried nuts in the ground, preparing for winter.' },
+            { en: 'Owl', zh: '貓頭鷹', emoji: '🦉', example: 'An intelligent {Owl} watched silently from the branches of the ancient oak tree.' },
+            { en: 'Eagle', zh: '老鷹', emoji: '🦅', example: 'The majestic {Eagle} soared high above the cliffs, looking for prey.' },
+            { en: 'Whale', zh: '鯨魚', emoji: '🐳', example: 'A huge blue {Whale} surfaced briefly, showing its massive size.' },
+            { en: 'Dolphin', zh: '海豚', emoji: '🐬', example: 'The playful {Dolphin} swam alongside the boat, leaping out of the waves.' },
+            { en: 'Penguin', zh: '企鵝', emoji: '🐧', example: 'A colony of {Penguin} waddled awkwardly across the ice to the sea.' },
+            { en: 'Turtle', zh: '烏龜', emoji: '🐢', example: 'The slow-moving {Turtle} retracted its head into its shell when approached.' },
+            { en: 'Frog', zh: '青蛙', emoji: '🐸', example: 'A green {Frog} sat on a lily pad, making croaking sounds in the pond.' },
+            { en: 'Snake', zh: '蛇', emoji: '🐍', example: 'Be careful walking in the tall grass; a small {Snake} might be hiding there.' }
+        ];
+
+        // 全域變數和 DOM 元素
+        const appContent = document.getElementById('app-content');
+        const navButtons = {
+            learn: document.getElementById('nav-learn'),
+            quiz: document.getElementById('nav-quiz'),
+            memory: document.getElementById('nav-memory'),
+        };
+        const statusMessage = document.getElementById('status-message');
+        const statusText = document.getElementById('status-text');
+
+        let currentView = 'learn';
+        let synth = null;
+        let defaultVoice = null;
+        let quizState = {};
+        let memoryGame = {};
+
+        // --- 語音合成 (Text-to-Speech) 相關函數 ---
+
+        function setupSpeech() {
+            synth = window.speechSynthesis;
+            if (!synth) {
+                displayStatus('錯誤：您的瀏覽器不支援語音合成功能。', 'error');
+                return;
+            }
+
+            const setVoice = () => {
+                const voices = synth.getVoices();
+                // 嘗試尋找一個英文 (en-US, en-GB) 語音
+                defaultVoice = voices.find(voice => voice.lang.startsWith('en')) || voices[0];
+            };
+            
+            // 語音列表可能需要時間載入
+            if (synth.getVoices().length === 0) {
+                synth.onvoiceschanged = setVoice;
+            } else {
+                setVoice();
+            }
+        }
+
+        function speakText(text, lang = 'en-US') {
+            if (!synth || synth.speaking) {
+                // 如果正在說話，則取消當前語音
+                if (synth.speaking) synth.cancel();
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            
+            if (lang.startsWith('en') && defaultVoice) {
+                utterance.voice = defaultVoice;
+            } else if (lang.startsWith('zh')) {
+                // 嘗試尋找一個中文語音
+                const chineseVoice = synth.getVoices().find(voice => voice.lang.startsWith('zh')) || defaultVoice;
+                if (chineseVoice) utterance.voice = chineseVoice;
+            }
+
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            
+            synth.speak(utterance);
+        }
+
+        function displayStatus(message, type = 'info') {
+            statusText.textContent = message;
+            statusMessage.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+            
+            if (type === 'error') {
+                 statusMessage.classList.add('bg-red-100', 'text-red-700');
+            } else if (type === 'success') {
+                 statusMessage.classList.add('bg-green-100', 'text-green-700');
+            } else {
+                 statusMessage.classList.add('bg-blue-100', 'text-blue-700');
+            }
+
+            statusMessage.classList.remove('hidden');
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 3000); 
+        }
+
+        // --- 輔助函數 ---
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // --- 學習例句模組 ---
+        let currentLearnIndex = 0;
+
+        function renderLearnModule() {
+            currentView = 'learn';
+            const animal = animals[currentLearnIndex];
+            
+            // 替換例句中的單字並強調
+            const highlightedExample = animal.example.replace(`{${animal.en}}`, 
+                `<span class="text-[#81b2e6] font-bold text-xl">${animal.en}</span>`);
+
+            appContent.innerHTML = `
+                <h2 class="text-3xl font-bold text-[#4a7a8f] mb-6 text-center">學習與例句</h2>
+                
+                <div class="max-w-xl mx-auto p-8 monet-card text-center space-y-4">
+                    <div class="text-9xl mb-4">${animal.emoji}</div>
+                    
+                    <div class="flex justify-center items-center space-x-4">
+                        <span class="text-4xl font-extrabold text-gray-800">${animal.en}</span>
+                        <button onclick="speakText('${animal.en}')" class="text-[#3a5a40] hover:text-[#62929e] transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M8.25 6.25a.75.75 0 011.5 0v7.5a.75.75 0 01-1.5 0v-7.5z" clip-rule="evenodd" transform="rotate(-90 9 10)" />
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-1 1v14a1 1 0 102 0V3a1 1 0 00-1-1z" clip-rule="evenodd" transform="rotate(-90 9 10)" />
+                            </svg>
+                            <span class="sr-only">播放單字</span>
+                        </button>
+                    </div>
+                    
+                    <p class="text-xl text-[#3a5a40] mb-6">中文：${animal.zh}</p>
+
+                    <hr class="border-t-2 border-[#f7eedd] my-6">
+
+                    <h3 class="text-2xl font-semibold text-[#4a7a8f] mb-4">例句：</h3>
+                    <p class="text-lg text-gray-700 italic leading-relaxed">${highlightedExample}</p>
+
+                    <button onclick="speakText('${animal.example.replace(`{${animal.en}}`, animal.en)}')" class="monet-button px-4 py-2 mt-4 rounded-lg text-md">
+                        <span class="mr-2">聆聽例句</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM6 11a1 1 0 000 2h8a1 1 0 100-2H6zM8 15a1 1 0 100 2h4a1 1 0 100-2H8z" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="flex justify-center mt-8 space-x-4">
+                    <button id="prev-btn" class="monet-button px-6 py-3 rounded-full text-lg ${currentLearnIndex === 0 ? 'opacity-50 cursor-not-allowed' : ''}">上一頁</button>
+                    <button id="next-btn" class="monet-button px-6 py-3 rounded-full text-lg ${currentLearnIndex === animals.length - 1 ? 'opacity-50 cursor-not-allowed' : ''}">下一頁</button>
+                </div>
+            `;
+
+            document.getElementById('prev-btn').onclick = () => {
+                if (currentLearnIndex > 0) {
+                    currentLearnIndex--;
+                    renderLearnModule();
+                }
+            };
+            document.getElementById('next-btn').onclick = () => {
+                if (currentLearnIndex < animals.length - 1) {
+                    currentLearnIndex++;
+                    renderLearnModule();
+                }
+            };
+        }
+
+
+        // --- 問答遊戲模組 ---
+
+        function generateQuiz() {
+            // 1. 選擇正確答案
+            const correctAnimal = animals[Math.floor(Math.random() * animals.length)];
+            
+            // 2. 選擇三個錯誤答案
+            let wrongOptions = animals.filter(a => a.en !== correctAnimal.en);
+            wrongOptions = shuffle(wrongOptions).slice(0, 3);
+
+            // 3. 組合所有選項並洗牌
+            let options = [...wrongOptions.map(a => a.en), correctAnimal.en];
+            options = shuffle(options);
+            
+            // 隨機選擇問題類型 (Emoji 轉英文 或 中文轉英文)
+            const questionType = Math.random() > 0.5 ? 'emoji' : 'zh';
+            
+            let questionText, targetText, correctOption;
+
+            if (questionType === 'emoji') {
+                questionText = `這個圖示代表哪一個動物？`;
+                targetText = correctAnimal.emoji;
+                correctOption = correctAnimal.en;
+            } else { // zh
+                questionText = `"${correctAnimal.zh}" 的英文單字是什麼？`;
+                targetText = correctAnimal.zh;
+                correctOption = correctAnimal.en;
+            }
+
+            quizState = {
+                correctAnswer: correctOption,
+                options: options,
+                questionText: questionText,
+                targetText: targetText,
+                questionType: questionType,
+                hasAnswered: false,
+                feedback: ''
+            };
+            renderQuizModule();
+        }
+
+        function handleQuizAnswer(selectedAnswer) {
+            if (quizState.hasAnswered) return;
+            quizState.hasAnswered = true;
+            
+            if (selectedAnswer === quizState.correctAnswer) {
+                quizState.feedback = '答對了！<span class="text-[#3a5a40]">Good job!</span>';
+                speakText('Correct!', 'en-US');
+            } else {
+                quizState.feedback = `答錯了。正確答案是：<span class="text-red-700">${quizState.correctAnswer}</span>`;
+                speakText('Wrong. The correct answer is ' + quizState.correctAnswer, 'en-US');
+            }
+            renderQuizModule();
+        }
+
+        function renderQuizModule() {
+            currentView = 'quiz';
+            if (!quizState.correctAnswer) {
+                generateQuiz();
+                return;
+            }
+
+            const optionsHtml = quizState.options.map(option => `
+                <button 
+                    onclick="handleQuizAnswer('${option}')"
+                    class="monet-button text-2xl w-full py-4 px-6 rounded-xl hover:bg-[#81b2e6] hover:text-white transition-all duration-300 
+                           ${quizState.hasAnswered ? 'opacity-60 cursor-default' : ''}
+                           ${quizState.hasAnswered && option === quizState.correctAnswer ? 'bg-green-300 text-green-900 border-green-500 font-bold opacity-100' : ''}"
+                >
+                    ${option}
+                </button>
+            `).join('');
+
+            appContent.innerHTML = `
+                <h2 class="text-3xl font-bold text-[#4a7a8f] mb-8 text-center">問答遊戲：選擇題</h2>
+
+                <div class="max-w-xl mx-auto p-8 monet-card text-center space-y-6">
+                    <p class="text-xl text-[#3a5a40] font-semibold">${quizState.questionText}</p>
+                    
+                    <div class="text-7xl font-extrabold text-[#1e3a8a] py-4">
+                        ${quizState.targetText}
+                    </div>
+                    
+                    <div class="grid grid-cols-1 gap-4 mt-6">
+                        ${optionsHtml}
+                    </div>
+
+                    ${quizState.hasAnswered ? `
+                        <div class="mt-8 p-4 rounded-lg text-lg font-bold ${quizState.feedback.includes('答對') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${quizState.feedback}
+                        </div>
+                        <button onclick="generateQuiz()" class="monet-button bg-[#f7eedd] text-[#3a5a40] border-[#3a5a40] px-6 py-3 rounded-full text-lg mt-4 hover:bg-[#ffe8d6]">
+                            下一題
+                        </button>
+                    ` : ''}
+
+                </div>
+            `;
+        }
+
+        // --- 記憶配對遊戲模組 ---
+
+        function initMemoryGame() {
+            currentView = 'memory';
+            memoryGame = {
+                cards: [],
+                flippedCards: [],
+                matchesFound: 0,
+                lockBoard: false
+            };
+
+            // 創建配對卡片 (單字和 Emoji)
+            let cardPairs = [];
+            animals.forEach(animal => {
+                cardPairs.push({ id: animal.en, content: animal.en, type: 'word' });
+                cardPairs.push({ id: animal.en, content: animal.emoji, type: 'emoji' });
+            });
+            
+            // 洗牌
+            memoryGame.cards = shuffle(cardPairs);
+            renderMemoryModule();
+        }
+
+        function flipCard(cardElement, cardData) {
+            if (memoryGame.lockBoard || cardElement.classList.contains('flipped') || cardElement.classList.contains('matched')) return;
+
+            cardElement.classList.add('flipped');
+            memoryGame.flippedCards.push({ element: cardElement, data: cardData });
+
+            if (memoryGame.flippedCards.length === 2) {
+                memoryGame.lockBoard = true;
+                checkForMatch();
+            }
+        }
+
+        function checkForMatch() {
+            const [firstCard, secondCard] = memoryGame.flippedCards;
+            const isMatch = firstCard.data.id === secondCard.data.id;
+
+            if (isMatch) {
+                handleMatch(firstCard.element, secondCard.element, firstCard.data.id);
+            } else {
+                handleMismatch(firstCard.element, secondCard.element);
+            }
+        }
+
+        function handleMatch(card1, card2, word) {
+            // 匹配成功
+            card1.classList.add('matched');
+            card2.classList.add('matched');
+            card1.onclick = null;
+            card2.onclick = null;
+            memoryGame.matchesFound++;
+            memoryGame.lockBoard = false;
+            memoryGame.flippedCards = [];
+            speakText(word, 'en-US');
+
+            if (memoryGame.matchesFound === animals.length) {
+                setTimeout(() => {
+                    displayStatus('恭喜！您成功配對了所有卡片！', 'success');
+                    renderMemoryModule(); // 重新渲染勝利畫面或開始新遊戲
+                }, 1000);
+            }
+        }
+
+        function handleMismatch(card1, card2) {
+            // 匹配失敗，延遲後翻回
+            setTimeout(() => {
+                card1.classList.remove('flipped');
+                card2.classList.remove('flipped');
+                memoryGame.lockBoard = false;
+                memoryGame.flippedCards = [];
+            }, 1500);
+        }
+
+        function renderMemoryModule() {
+            currentView = 'memory';
+
+            if (memoryGame.matchesFound === animals.length) {
+                 appContent.innerHTML = `
+                    <h2 class="text-4xl font-extrabold text-[#3a5a40] mb-6 text-center">🎉 遊戲勝利！ 🎉</h2>
+                    <p class="text-xl text-[#62929e] mb-8 text-center">您成功地配對了所有 ${animals.length} 組動物單字！</p>
+                    <div class="flex justify-center">
+                        <button onclick="initMemoryGame()" class="monet-button bg-[#ffe8d6] text-[#3a5a40] border-[#3a5a40] px-8 py-4 rounded-full text-xl hover:bg-[#f7eedd]">
+                            再玩一次
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const cardGridHtml = memoryGame.cards.map((card, index) => {
+                return `
+                    <div class="memory-card" data-index="${index}" onclick="handleMemoryClick(this, ${index})">
+                        <div class="memory-card-inner">
+                            <div class="card-face card-front ${card.type === 'emoji' ? 'text-5xl' : 'text-xl md:text-2xl'}">
+                                ${card.content}
+                            </div>
+                            <div class="card-face card-back text-4xl">
+                                ?
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            appContent.innerHTML = `
+                <h2 class="text-3xl font-bold text-[#4a7a8f] mb-6 text-center">記憶配對遊戲</h2>
+                <p class="text-lg text-[#62929e] mb-6 text-center">目標：將動物的英文單字和對應的 Emoji 配對。</p>
+                <div class="flex justify-center mb-4">
+                     <div class="text-xl font-semibold text-[#3a5a40] mr-4">已配對：${memoryGame.matchesFound} / ${animals.length}</div>
+                     <button onclick="initMemoryGame()" class="text-sm text-red-500 hover:text-red-700 transition-colors">重新開始</button>
+                </div>
+                <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 gap-3 md:gap-4 max-w-4xl mx-auto">
+                    ${cardGridHtml}
+                </div>
+            `;
+        }
+
+        function handleMemoryClick(element, index) {
+            const cardData = memoryGame.cards[index];
+            flipCard(element, cardData);
+        }
+
+
+        // --- 視圖控制與初始化 ---
+
+        function setView(viewName) {
+            // 清除所有按鈕的樣式
+            Object.values(navButtons).forEach(btn => {
+                btn.classList.remove('bg-[#81b2e6]', 'text-white');
+                btn.classList.add('bg-[#a2d2ff]', 'text-[#1e3a8a]');
+            });
+
+            // 設定當前按鈕的樣式
+            navButtons[viewName].classList.remove('bg-[#a2d2ff]', 'text-[#1e3a8a]');
+            navButtons[viewName].classList.add('bg-[#81b2e6]', 'text-white');
+            
+            // 根據視圖名稱渲染對應模組
+            if (viewName === 'learn') {
+                renderLearnModule();
+            } else if (viewName === 'quiz') {
+                generateQuiz();
+            } else if (viewName === 'memory') {
+                initMemoryGame();
+            }
+        }
+
+        // 頁面載入完成後執行
+        window.onload = () => {
+            setupSpeech();
+
+            // 導航按鈕事件監聽器
+            navButtons.learn.addEventListener('click', () => setView('learn'));
+            navButtons.quiz.addEventListener('click', () => setView('quiz'));
+            navButtons.memory.addEventListener('click', () => setView('memory'));
+
+            // 預設載入學習模組
+            setView('learn');
+        };
+    </script>
+</body>
+</html>
